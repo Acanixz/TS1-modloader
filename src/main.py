@@ -1,10 +1,12 @@
 import subprocess
 import os
 from typing import Optional
-from settings import Settings
-from modloader import ModLoader
 import tkinter as tk
 from tkinter import messagebox
+
+from settings import Settings
+from modloader import ModLoader
+from ui import UI
 
 def display_boot_message():
     root = tk.Tk()
@@ -25,8 +27,9 @@ def display_boot_message():
     root.destroy()
 
 def main():
-    print("Starting game")
-    play()
+    # Initialize UI
+    ui = UI()
+    ui.run()
 
 # Initialize submodules
 settings = Settings()
