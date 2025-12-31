@@ -129,4 +129,93 @@ class ModLoader:
         for mod_id in self.mods:
             self.install_mod(mod_id)
 
+    # Adds a new mod to the manifest and copies files to cache
+    def add_mod(
+        self,
+        mod_id: str,
+        name: str,
+        description: Optional[str],
+        image: Optional[str],
+        download_files: List[Tuple[str, str]],  # List of (source_path, filename)
+        override_files: List[Tuple[str, str, str]],  # List of (source_path, filename, target_rel)
+    ) -> None:
+        # Validate mod ID doesn't already exist
+        if mod_id in self.mods:
+            raise ValueError(f"Mod with ID '{mod_id}' already exists")
+
+        # Create mod directory in cache
+        mod_cache_dir = self.cache_dir / mod_id
+        mod_cache_dir.mkdir(parents=True, exist_ok=True)
+
+        # Copy download files and build relative paths
+        download_rel_paths: List[str] = []
+        for src_path, filename in download_files:
+            dest = mod_cache_dir / filename
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_path, dest)
+            # Store relative path from cache_dir: {mod_id}/{filename}
+            download_rel_paths.append(f"{mod_id}/{filename}")
+
+        # Copy override files and build override entries
+        override_entries: List[Tuple[str, str]] = []
+        for src_path, filename, target_rel in override_files:
+            dest = mod_cache_dir / filename
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_path, dest)
+            # Store relative path from cache_dir and target
+            source_rel = f"{mod_id}/{filename}"
+            override_entries.append((source_rel, target_rel))
+
+        # Create Mod instance
+        mod = Mod(
+            id=mod_id,
+            name=name,
+            description=description,
+            image=image,
+            download_files=download_rel_paths,
+            override_files=override_entries,
+        )
+        self.mods[mod_id] = mod
+
+        # Update manifest.json
+        self._save_manifest()
+        print(f"Added mod: {mod_id}")
+
+    # Removes a mod from the manifest and deletes its cached files
+    def remove_mod(self, mod_id: str) -> None:
+        if mod_id not in self.mods:
+            raise KeyError(f"Mod not found: {mod_id}")
+
+        # Remove mod directory from cache
+        mod_cache_dir = self.cache_dir / mod_id
+        if mod_cache_dir.exists():
+            shutil.rmtree(mod_cache_dir)
+
+        # Remove from mods dict
+        del self.mods[mod_id]
+
+        # Update manifest.json
+        self._save_manifest()
+        print(f"Removed mod: {mod_id}")
+
+    # Saves the current mods to manifest.json
+    def _save_manifest(self) -> None:
+        mods_data = []
+        for mod in self.mods.values():
+            mod_entry = {
+                "id": mod.id,
+                "name": mod.name,
+                "description": mod.description,
+                "image": mod.image,
+                "downloads": mod.download_files,
+                "overrides": [
+                    {"source": src, "target": dst}
+                    for src, dst in mod.override_files
+                ],
+            }
+            mods_data.append(mod_entry)
+
+        with self.manifest_path.open("w", encoding="utf-8") as f:
+            json.dump({"mods": mods_data}, f, indent=2)
+
 

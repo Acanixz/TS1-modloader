@@ -28,7 +28,7 @@ def display_boot_message():
 
 def main():
     # Initialize UI
-    ui = UI(settings, play_callback=play)
+    ui = UI(settings, play_callback=play, modloader=mod_loader)
     ui.run()
 
 # Initialize submodules

@@ -2,8 +2,8 @@ import os
 import sys
 import tkinter as tk
 from tkinter import ttk
+from tkinter import filedialog, messagebox
 from settings import Settings
-from tkinter import messagebox
 
 # The Sims 1 Color Palettes
 PRIMARY_COLOR = "#395577"  # Background primary
@@ -16,9 +16,10 @@ FONT_FAMILY = "Montserrat"
 FALLBACK_FONT_FAMILY = "Segoe UI"
 
 class UI:
-    def __init__(self, settings : Settings, play_callback=None):
+    def __init__(self, settings : Settings, play_callback=None, modloader=None):
         self.settings = settings
         self.play_callback = play_callback
+        self.modloader = modloader
         self.primary_color = PRIMARY_COLOR
         self.secondary_color = SECONDARY_COLOR
         self.text_primary_color = TEXT_PRIMARY_COLOR
@@ -139,26 +140,866 @@ class UI:
         """Create the Mods page"""
         page = tk.Frame(self.content_frame, bg=self.primary_color)
         
+        # Header frame with title and add button
+        header_frame = tk.Frame(page, bg=self.primary_color)
+        header_frame.pack(fill=tk.X, padx=20, pady=(30, 10))
+        
         title = tk.Label(
-            page,
+            header_frame,
             text="Mod Manager",
             font=(self.font_family, 20, "bold"),
             bg=self.primary_color,
             fg=self.text_primary_color
         )
-        title.pack(pady=(30, 20))
+        title.pack(side=tk.LEFT)
         
-        # Placeholder for mod list
-        label = tk.Label(
+        # Add New Mod button
+        add_mod_button = tk.Button(
+            header_frame,
+            text="+ Add New Mod",
+            font=(self.font_family, 11, "bold"),
+            bg=self.secondary_color,
+            fg=self.text_primary_color,
+            activebackground=self.primary_color,
+            activeforeground=self.text_primary_color,
+            bd=0,
+            padx=15,
+            pady=8,
+            cursor="hand2",
+            command=self.open_add_mod_popup
+        )
+        add_mod_button.pack(side=tk.RIGHT)
+        
+        # Mod count label
+        self.mod_count_label = tk.Label(
             page,
-            text="Mod management coming soon...",
-            font=(self.font_family, 12),
+            text="",
+            font=(self.font_family, 11),
             bg=self.primary_color,
             fg=self.text_secondary_color
         )
-        label.pack(pady=20)
+        self.mod_count_label.pack(anchor=tk.W, padx=20, pady=(0, 10))
+        
+        # Scrollable mod list container
+        list_container = tk.Frame(page, bg=self.primary_color)
+        list_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+        
+        mod_canvas = tk.Canvas(
+            list_container,
+            bg=self.primary_color,
+            highlightthickness=0
+        )
+        mod_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        scrollbar = tk.Scrollbar(
+            list_container,
+            orient=tk.VERTICAL,
+            command=mod_canvas.yview
+        )
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        mod_canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Frame inside canvas to hold mod entries
+        self.mod_list_frame = tk.Frame(mod_canvas, bg=self.primary_color)
+        mod_window = mod_canvas.create_window((0, 0), window=self.mod_list_frame, anchor="nw")
+        
+        def _resize_mod_list(event):
+            mod_canvas.configure(scrollregion=mod_canvas.bbox("all"))
+        
+        def _match_mod_canvas_width(event):
+            mod_canvas.itemconfigure(mod_window, width=event.width)
+        
+        def _on_mod_mousewheel(event):
+            # Only scroll if content is larger than visible area
+            if self.mod_list_frame.winfo_height() > mod_canvas.winfo_height():
+                mod_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        
+        self.mod_list_frame.bind("<Configure>", _resize_mod_list)
+        mod_canvas.bind("<Configure>", _match_mod_canvas_width)
+        
+        # Store canvas reference for mousewheel binding
+        self.mod_canvas = mod_canvas
+        
+        list_container.bind(
+            "<Enter>",
+            lambda _: mod_canvas.bind_all("<MouseWheel>", _on_mod_mousewheel)
+        )
+        list_container.bind(
+            "<Leave>",
+            lambda _: mod_canvas.unbind_all("<MouseWheel>")
+        )
         
         self.pages["Mods"] = page
+        
+        # Initial population of mod list
+        self.refresh_mod_list()
+
+    def refresh_mod_list(self):
+        """Refresh the mod list display"""
+        # Clear existing entries
+        for widget in self.mod_list_frame.winfo_children():
+            widget.destroy()
+        
+        # Reset scroll position to top
+        self.mod_canvas.yview_moveto(0)
+        
+        # Update count label
+        if self.modloader:
+            mod_count = len(self.modloader.mods)
+            self.mod_count_label.config(text=f"{mod_count} mod(s) installed")
+            
+            if mod_count == 0:
+                # Show empty message
+                tk.Label(
+                    self.mod_list_frame,
+                    text="No mods installed yet. Click '+ Add New Mod' to get started.",
+                    font=(self.font_family, 11),
+                    bg=self.primary_color,
+                    fg=self.text_secondary_color
+                ).pack(pady=30)
+            else:
+                # Create mod entries
+                for mod in self.modloader.mods.values():
+                    self._create_mod_entry(mod)
+        else:
+            self.mod_count_label.config(text="ModLoader not initialized")
+
+    def _create_mod_entry(self, mod):
+        """Create a single mod entry in the list"""
+        # Outer frame for white border effect
+        border_frame = tk.Frame(
+            self.mod_list_frame,
+            bg=self.text_secondary_color,  # White border
+            padx=1,
+            pady=1
+        )
+        border_frame.pack(fill=tk.X, pady=6, padx=15)
+        
+        # Inner frame with actual content
+        entry_frame = tk.Frame(
+            border_frame,
+            bg=self.secondary_color,
+            pady=8,
+            padx=10
+        )
+        entry_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Delete button (pack first so it doesn't shrink)
+        delete_btn = tk.Button(
+            entry_frame,
+            text="✕",
+            font=(self.font_family, 10, "bold"),
+            bg=self.primary_color,
+            fg="#FF6B6B",
+            activebackground=self.secondary_color,
+            activeforeground="#FF4444",
+            bd=0,
+            width=3,
+            pady=2,
+            cursor="hand2",
+            command=lambda m=mod: self.confirm_delete_mod(m)
+        )
+        delete_btn.pack(side=tk.RIGHT, padx=(5, 0))
+        
+        # Truncate mod name if too long (max ~60 chars to fit 3/4 width)
+        max_chars = 60
+        display_name = mod.name if len(mod.name) <= max_chars else mod.name[:max_chars-3] + "..."
+        
+        # Mod name (clickable)
+        name_label = tk.Label(
+            entry_frame,
+            text=display_name,
+            font=(self.font_family, 11),
+            bg=self.secondary_color,
+            fg=self.text_secondary_color,
+            cursor="hand2",
+            anchor=tk.W
+        )
+        name_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Bind click to show details
+        name_label.bind("<Button-1>", lambda e, m=mod: self.show_mod_details(m))
+        entry_frame.bind("<Button-1>", lambda e, m=mod: self.show_mod_details(m))
+        border_frame.bind("<Button-1>", lambda e, m=mod: self.show_mod_details(m))
+        
+        # Hover effect for the entry
+        def on_enter(e):
+            entry_frame.config(bg=self.primary_color)
+            name_label.config(bg=self.primary_color)
+        
+        def on_leave(e):
+            entry_frame.config(bg=self.secondary_color)
+            name_label.config(bg=self.secondary_color)
+        
+        entry_frame.bind("<Enter>", on_enter)
+        entry_frame.bind("<Leave>", on_leave)
+        name_label.bind("<Enter>", on_enter)
+        name_label.bind("<Leave>", on_leave)
+        border_frame.bind("<Enter>", on_enter)
+        border_frame.bind("<Leave>", on_leave)
+
+    def show_mod_details(self, mod):
+        """Show mod details in a popup window"""
+        popup = tk.Toplevel(self.root)
+        popup.title(f"Mod Details - {mod.name}")
+        popup.configure(bg=self.primary_color)
+        popup.geometry("550x500")
+        popup.resizable(False, False)
+        popup.transient(self.root)
+        popup.grab_set()
+        
+        # Center the popup
+        popup.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (550 // 2)
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (500 // 2)
+        popup.geometry(f"+{x}+{y}")
+        
+        # Scrollable content
+        canvas = tk.Canvas(popup, bg=self.primary_color, highlightthickness=0)
+        scrollbar = tk.Scrollbar(popup, orient=tk.VERTICAL, command=canvas.yview)
+        content_frame = tk.Frame(canvas, bg=self.primary_color)
+        
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        canvas_window = canvas.create_window((0, 0), window=content_frame, anchor="nw")
+        
+        # Labels that need dynamic wraplength
+        wrappable_labels = []
+        
+        def configure_scroll(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            canvas.itemconfigure(canvas_window, width=event.width)
+            # Update wraplength for all wrappable labels
+            new_wraplength = event.width - 10  # Small padding
+            for lbl in wrappable_labels:
+                lbl.configure(wraplength=new_wraplength)
+        
+        content_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", configure_scroll)
+        
+        # Mouse wheel scrolling
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        
+        # Bind mousewheel when mouse enters the popup
+        popup.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", on_mousewheel))
+        popup.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+        
+        # Mod Name (Title)
+        name_label = tk.Label(
+            content_frame,
+            text=mod.name,
+            font=(self.font_family, 16, "bold"),
+            bg=self.primary_color,
+            fg=self.text_primary_color,
+            wraplength=1,  # Will be updated dynamically
+            justify=tk.LEFT,
+            anchor=tk.W
+        )
+        name_label.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
+        wrappable_labels.append(name_label)
+        
+        # Mod ID
+        tk.Label(
+            content_frame,
+            text=f"ID: {mod.id}",
+            font=(self.font_family, 9),
+            bg=self.primary_color,
+            fg=self.text_secondary_color
+        ).pack(anchor=tk.W, pady=(0, 15))
+        
+        # Image section
+        image_displayed = False
+        if mod.image:
+            try:
+                img_path = os.path.join(str(self.modloader.cache_dir), mod.id, mod.image)
+                if os.path.exists(img_path):
+                    img = tk.PhotoImage(file=img_path)
+                    # Scale if needed
+                    width, height = img.width(), img.height()
+                    max_size = 200
+                    scale = max((width + max_size - 1) // max_size, (height + max_size - 1) // max_size, 1)
+                    if scale > 1:
+                        img = img.subsample(scale)
+                    img_label = tk.Label(content_frame, image=img, bg=self.primary_color)
+                    img_label.image = img  # Keep reference
+                    img_label.pack(anchor=tk.W, pady=(0, 15))
+                    image_displayed = True
+            except Exception:
+                pass
+        
+        # Show placeholder if no image
+        if not image_displayed:
+            placeholder_frame = tk.Frame(
+                content_frame,
+                bg=self.secondary_color,
+                width=200,
+                height=150
+            )
+            placeholder_frame.pack(anchor=tk.W, pady=(0, 15))
+            placeholder_frame.pack_propagate(False)
+            
+            tk.Label(
+                placeholder_frame,
+                text="No Image",
+                font=(self.font_family, 11),
+                bg=self.secondary_color,
+                fg=self.text_secondary_color
+            ).place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        
+        # Description
+        tk.Label(
+            content_frame,
+            text="Description:",
+            font=(self.font_family, 11, "bold"),
+            bg=self.primary_color,
+            fg=self.text_primary_color
+        ).pack(anchor=tk.W, pady=(0, 5))
+        
+        desc_text = mod.description if mod.description else "No description provided."
+        desc_label = tk.Label(
+            content_frame,
+            text=desc_text,
+            font=(self.font_family, 10),
+            bg=self.primary_color,
+            fg=self.text_secondary_color,
+            wraplength=1,  # Will be updated dynamically
+            justify=tk.LEFT,
+            anchor=tk.W
+        )
+        desc_label.pack(anchor=tk.W, fill=tk.X, pady=(0, 15))
+        wrappable_labels.append(desc_label)
+        
+        # Downloads section
+        tk.Label(
+            content_frame,
+            text=f"Download Files ({len(mod.download_files)}):",
+            font=(self.font_family, 11, "bold"),
+            bg=self.primary_color,
+            fg=self.text_primary_color
+        ).pack(anchor=tk.W, pady=(0, 5))
+        
+        if mod.download_files:
+            for dl_file in mod.download_files:
+                # Show just the filename (after mod_id/)
+                display_name = dl_file.split("/")[-1] if "/" in dl_file else dl_file
+                tk.Label(
+                    content_frame,
+                    text=f"  • {display_name}",
+                    font=(self.font_family, 9),
+                    bg=self.primary_color,
+                    fg=self.text_secondary_color
+                ).pack(anchor=tk.W)
+        else:
+            tk.Label(
+                content_frame,
+                text="  None",
+                font=(self.font_family, 9),
+                bg=self.primary_color,
+                fg=self.text_secondary_color
+            ).pack(anchor=tk.W)
+        
+        # Overrides section
+        tk.Label(
+            content_frame,
+            text=f"Override Files ({len(mod.override_files)}):",
+            font=(self.font_family, 11, "bold"),
+            bg=self.primary_color,
+            fg=self.text_primary_color
+        ).pack(anchor=tk.W, pady=(15, 5))
+        
+        if mod.override_files:
+            for src, target in mod.override_files:
+                # Show filename and target
+                filename = src.split("/")[-1] if "/" in src else src
+                tk.Label(
+                    content_frame,
+                    text=f"  • {filename}",
+                    font=(self.font_family, 9, "bold"),
+                    bg=self.primary_color,
+                    fg=self.text_secondary_color
+                ).pack(anchor=tk.W)
+                tk.Label(
+                    content_frame,
+                    text=f"    → {target}",
+                    font=(self.font_family, 9),
+                    bg=self.primary_color,
+                    fg=self.text_secondary_color
+                ).pack(anchor=tk.W)
+        else:
+            tk.Label(
+                content_frame,
+                text="  None",
+                font=(self.font_family, 9),
+                bg=self.primary_color,
+                fg=self.text_secondary_color
+            ).pack(anchor=tk.W)
+        
+        # Close button at bottom
+        close_frame = tk.Frame(popup, bg=self.primary_color)
+        close_frame.pack(side=tk.BOTTOM, pady=15)
+        
+        def close_popup():
+            canvas.unbind_all("<MouseWheel>")
+            popup.destroy()
+        
+        tk.Button(
+            close_frame,
+            text="Close",
+            font=(self.font_family, 11, "bold"),
+            bg=self.secondary_color,
+            fg=self.text_secondary_color,
+            activebackground=self.primary_color,
+            activeforeground=self.text_secondary_color,
+            bd=0,
+            padx=25,
+            pady=8,
+            cursor="hand2",
+            command=close_popup
+        ).pack()
+
+    def confirm_delete_mod(self, mod):
+        """Show confirmation dialog before deleting a mod"""
+        result = messagebox.askyesno(
+            "Delete Mod",
+            f"Are you sure you want to delete '{mod.name}'?\n\n" \
+            "This will remove the mod from the manifest and delete its cached files.\n\n" \
+            "Note: This action does not delete any files from the game folder, so this is only effective " \
+            "if the game has not been launched with the mod installed yet.",
+            parent=self.root
+        )
+        
+        if result:
+            try:
+                self.modloader.remove_mod(mod.id)
+                self.refresh_mod_list()
+                messagebox.showinfo("Success", f"Mod '{mod.name}' has been deleted.", parent=self.root)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to delete mod: {str(e)}", parent=self.root)
+
+    def open_add_mod_popup(self):
+        """Open popup window to add a new mod"""
+        if not self.modloader:
+            messagebox.showerror("Error", "ModLoader not initialized. Please set a valid game path first.")
+            return
+        
+        # Create popup window
+        popup = tk.Toplevel(self.root)
+        popup.title("Add New Mod")
+        popup.configure(bg=self.primary_color)
+        popup.geometry("600x650")
+        popup.resizable(False, False)
+        popup.transient(self.root)
+        popup.grab_set()
+        
+        # Center the popup
+        popup.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (600 // 2)
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (650 // 2)
+        popup.geometry(f"+{x}+{y}")
+        
+        # Title
+        tk.Label(
+            popup,
+            text="Add New Mod",
+            font=(self.font_family, 16, "bold"),
+            bg=self.primary_color,
+            fg=self.text_primary_color
+        ).pack(pady=(20, 15))
+        
+        # --- Bottom Buttons (pack first so they stay at bottom) ---
+        button_frame = tk.Frame(popup, bg=self.primary_color)
+        button_frame.pack(side=tk.BOTTOM, pady=15)
+        
+        # Scrollable content frame
+        canvas = tk.Canvas(popup, bg=self.primary_color, highlightthickness=0)
+        scrollbar = tk.Scrollbar(popup, orient=tk.VERTICAL, command=canvas.yview)
+        content_frame = tk.Frame(canvas, bg=self.primary_color)
+        
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(20, 0))
+        
+        canvas_window = canvas.create_window((0, 0), window=content_frame, anchor="nw")
+        
+        def configure_scroll(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            canvas.itemconfigure(canvas_window, width=event.width)
+        
+        content_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", configure_scroll)
+        
+        # Mouse wheel scrolling
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        canvas.bind_all("<MouseWheel>", on_mousewheel)
+        
+        # --- Form Fields ---
+        
+        # Mod ID
+        tk.Label(
+            content_frame,
+            text="Mod ID: *",
+            font=(self.font_family, 11, "bold"),
+            bg=self.primary_color,
+            fg=self.text_primary_color
+        ).pack(anchor=tk.W, pady=(10, 5))
+        
+        mod_id_entry = tk.Entry(
+            content_frame,
+            font=(self.font_family, 10),
+            bg=self.secondary_color,
+            fg=self.text_secondary_color,
+            insertbackground=self.text_secondary_color,
+            relief=tk.FLAT,
+            width=50
+        )
+        mod_id_entry.pack(anchor=tk.W, ipady=5, pady=(0, 10))
+        
+        # Mod Name
+        tk.Label(
+            content_frame,
+            text="Mod Name: *",
+            font=(self.font_family, 11, "bold"),
+            bg=self.primary_color,
+            fg=self.text_primary_color
+        ).pack(anchor=tk.W, pady=(0, 5))
+        
+        mod_name_entry = tk.Entry(
+            content_frame,
+            font=(self.font_family, 10),
+            bg=self.secondary_color,
+            fg=self.text_secondary_color,
+            insertbackground=self.text_secondary_color,
+            relief=tk.FLAT,
+            width=50
+        )
+        mod_name_entry.pack(anchor=tk.W, ipady=5, pady=(0, 10))
+        
+        # Description
+        tk.Label(
+            content_frame,
+            text="Description:",
+            font=(self.font_family, 11, "bold"),
+            bg=self.primary_color,
+            fg=self.text_primary_color
+        ).pack(anchor=tk.W, pady=(0, 5))
+        
+        mod_desc_entry = tk.Text(
+            content_frame,
+            font=(self.font_family, 10),
+            bg=self.secondary_color,
+            fg=self.text_secondary_color,
+            insertbackground=self.text_secondary_color,
+            relief=tk.FLAT,
+            width=50,
+            height=3
+        )
+        mod_desc_entry.pack(anchor=tk.W, pady=(0, 10))
+        
+        # --- Download Files Section ---
+        tk.Label(
+            content_frame,
+            text="Download Files (Custom Content):",
+            font=(self.font_family, 11, "bold"),
+            bg=self.primary_color,
+            fg=self.text_primary_color
+        ).pack(anchor=tk.W, pady=(10, 5))
+        
+        download_files_list = []  # List of (full_path, filename)
+        
+        download_listbox_frame = tk.Frame(content_frame, bg=self.secondary_color)
+        download_listbox_frame.pack(anchor=tk.W, fill=tk.X, pady=(0, 5), padx=(0, 20))
+        
+        download_listbox = tk.Listbox(
+            download_listbox_frame,
+            font=(self.font_family, 9),
+            bg=self.secondary_color,
+            fg=self.text_secondary_color,
+            selectbackground=self.primary_color,
+            selectforeground=self.text_primary_color,
+            relief=tk.FLAT,
+            height=4,
+            width=60
+        )
+        download_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        download_scrollbar = tk.Scrollbar(download_listbox_frame, command=download_listbox.yview)
+        download_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        download_listbox.configure(yscrollcommand=download_scrollbar.set)
+        
+        download_btn_frame = tk.Frame(content_frame, bg=self.primary_color)
+        download_btn_frame.pack(anchor=tk.W, pady=(0, 10))
+        
+        def add_download_files():
+            files = filedialog.askopenfilenames(
+                title="Select Download Files",
+                filetypes=[("IFF Files", "*.iff"), ("All Files", "*.*")]
+            )
+            for f in files:
+                filename = os.path.basename(f)
+                if (f, filename) not in download_files_list:
+                    download_files_list.append((f, filename))
+                    download_listbox.insert(tk.END, filename)
+        
+        def remove_download_file():
+            selection = download_listbox.curselection()
+            if selection:
+                idx = selection[0]
+                download_listbox.delete(idx)
+                download_files_list.pop(idx)
+        
+        tk.Button(
+            download_btn_frame,
+            text="Add Files",
+            font=(self.font_family, 9),
+            bg=self.secondary_color,
+            fg=self.text_primary_color,
+            activebackground=self.primary_color,
+            activeforeground=self.text_primary_color,
+            bd=0,
+            padx=10,
+            pady=5,
+            cursor="hand2",
+            command=add_download_files
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        
+        tk.Button(
+            download_btn_frame,
+            text="Remove Selected",
+            font=(self.font_family, 9),
+            bg=self.secondary_color,
+            fg=self.text_primary_color,
+            activebackground=self.primary_color,
+            activeforeground=self.text_primary_color,
+            bd=0,
+            padx=10,
+            pady=5,
+            cursor="hand2",
+            command=remove_download_file
+        ).pack(side=tk.LEFT)
+        
+        # --- Override Files Section ---
+        tk.Label(
+            content_frame,
+            text="Override Files (Replace Game Files):",
+            font=(self.font_family, 11, "bold"),
+            bg=self.primary_color,
+            fg=self.text_primary_color
+        ).pack(anchor=tk.W, pady=(10, 5))
+        
+        override_files_list = []  # List of (full_path, filename, target_rel)
+        
+        override_listbox_frame = tk.Frame(content_frame, bg=self.secondary_color)
+        override_listbox_frame.pack(anchor=tk.W, fill=tk.X, pady=(0, 5), padx=(0, 20))
+        
+        override_listbox = tk.Listbox(
+            override_listbox_frame,
+            font=(self.font_family, 9),
+            bg=self.secondary_color,
+            fg=self.text_secondary_color,
+            selectbackground=self.primary_color,
+            selectforeground=self.text_primary_color,
+            relief=tk.FLAT,
+            height=4,
+            width=60
+        )
+        override_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        override_scrollbar = tk.Scrollbar(override_listbox_frame, command=override_listbox.yview)
+        override_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        override_listbox.configure(yscrollcommand=override_scrollbar.set)
+        
+        override_btn_frame = tk.Frame(content_frame, bg=self.primary_color)
+        override_btn_frame.pack(anchor=tk.W, pady=(0, 10))
+        
+        def add_override_file():
+            # First select the source file
+            src_file = filedialog.askopenfilename(
+                title="Select Override Source File",
+                filetypes=[("IFF Files", "*.iff"), ("All Files", "*.*")]
+            )
+            if not src_file:
+                return
+            
+            filename = os.path.basename(src_file)
+            
+            # Then ask for the target path (relative to game folder)
+            target_dialog = tk.Toplevel(popup)
+            target_dialog.title("Set Target Path")
+            target_dialog.configure(bg=self.primary_color)
+            target_dialog.geometry("450x150")
+            target_dialog.transient(popup)
+            target_dialog.grab_set()
+            
+            # Center dialog
+            target_dialog.update_idletasks()
+            tx = popup.winfo_x() + (popup.winfo_width() // 2) - (450 // 2)
+            ty = popup.winfo_y() + (popup.winfo_height() // 2) - (150 // 2)
+            target_dialog.geometry(f"+{tx}+{ty}")
+            
+            tk.Label(
+                target_dialog,
+                text=f"File: {filename}",
+                font=(self.font_family, 10),
+                bg=self.primary_color,
+                fg=self.text_secondary_color
+            ).pack(pady=(15, 5))
+            
+            tk.Label(
+                target_dialog,
+                text="Target path (relative to game folder):",
+                font=(self.font_family, 10, "bold"),
+                bg=self.primary_color,
+                fg=self.text_primary_color
+            ).pack(pady=(5, 5))
+            
+            target_entry = tk.Entry(
+                target_dialog,
+                font=(self.font_family, 10),
+                bg=self.secondary_color,
+                fg=self.text_secondary_color,
+                insertbackground=self.text_secondary_color,
+                relief=tk.FLAT,
+                width=45
+            )
+            target_entry.pack(ipady=5, pady=(0, 10))
+            target_entry.insert(0, f"GameData/{filename}")
+            
+            def confirm_target():
+                target_rel = target_entry.get().strip()
+                if target_rel:
+                    override_files_list.append((src_file, filename, target_rel))
+                    override_listbox.insert(tk.END, f"{filename} → {target_rel}")
+                    target_dialog.destroy()
+            
+            tk.Button(
+                target_dialog,
+                text="Confirm",
+                font=(self.font_family, 10, "bold"),
+                bg=self.secondary_color,
+                fg=self.text_primary_color,
+                activebackground=self.primary_color,
+                activeforeground=self.text_primary_color,
+                bd=0,
+                padx=15,
+                pady=5,
+                cursor="hand2",
+                command=confirm_target
+            ).pack()
+        
+        def remove_override_file():
+            selection = override_listbox.curselection()
+            if selection:
+                idx = selection[0]
+                override_listbox.delete(idx)
+                override_files_list.pop(idx)
+        
+        tk.Button(
+            override_btn_frame,
+            text="Add Override",
+            font=(self.font_family, 9),
+            bg=self.secondary_color,
+            fg=self.text_primary_color,
+            activebackground=self.primary_color,
+            activeforeground=self.text_primary_color,
+            bd=0,
+            padx=10,
+            pady=5,
+            cursor="hand2",
+            command=add_override_file
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        
+        tk.Button(
+            override_btn_frame,
+            text="Remove Selected",
+            font=(self.font_family, 9),
+            bg=self.secondary_color,
+            fg=self.text_primary_color,
+            activebackground=self.primary_color,
+            activeforeground=self.text_primary_color,
+            bd=0,
+            padx=10,
+            pady=5,
+            cursor="hand2",
+            command=remove_override_file
+        ).pack(side=tk.LEFT)
+        
+        # --- Bottom Button Functions ---
+        def cancel_add_mod():
+            canvas.unbind_all("<MouseWheel>")
+            popup.destroy()
+        
+        def confirm_add_mod():
+            mod_id = mod_id_entry.get().strip()
+            mod_name = mod_name_entry.get().strip()
+            mod_desc = mod_desc_entry.get("1.0", tk.END).strip() or None
+            
+            # Validation
+            if not mod_id:
+                messagebox.showerror("Error", "Mod ID is required.", parent=popup)
+                return
+            if not mod_name:
+                messagebox.showerror("Error", "Mod Name is required.", parent=popup)
+                return
+            if not download_files_list and not override_files_list:
+                messagebox.showerror("Error", "Please add at least one download or override file.", parent=popup)
+                return
+            
+            # Check if mod ID already exists
+            if mod_id in self.modloader.mods:
+                messagebox.showerror("Error", f"A mod with ID '{mod_id}' already exists.", parent=popup)
+                return
+            
+            try:
+                self.modloader.add_mod(
+                    mod_id=mod_id,
+                    name=mod_name,
+                    description=mod_desc,
+                    image=None,
+                    download_files=download_files_list,
+                    override_files=override_files_list
+                )
+                messagebox.showinfo("Success", f"Mod '{mod_name}' added successfully!", parent=popup)
+                canvas.unbind_all("<MouseWheel>")
+                popup.destroy()
+                self.refresh_mod_list()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to add mod: {str(e)}", parent=popup)
+        
+        # Add buttons to the pre-created button_frame
+        tk.Button(
+            button_frame,
+            text="Cancel",
+            font=(self.font_family, 11, "bold"),
+            bg=self.secondary_color,
+            fg=self.text_secondary_color,
+            activebackground=self.primary_color,
+            activeforeground=self.text_secondary_color,
+            bd=0,
+            padx=25,
+            pady=8,
+            cursor="hand2",
+            command=cancel_add_mod
+        ).pack(side=tk.LEFT, padx=(0, 15))
+        
+        tk.Button(
+            button_frame,
+            text="Add Mod",
+            font=(self.font_family, 11, "bold"),
+            bg=self.secondary_color,
+            fg=self.text_primary_color,
+            activebackground=self.primary_color,
+            activeforeground=self.text_primary_color,
+            bd=0,
+            padx=25,
+            pady=8,
+            cursor="hand2",
+            command=confirm_add_mod
+        ).pack(side=tk.LEFT)
     
     def create_settings_page(self):
         """Create the Settings page"""
