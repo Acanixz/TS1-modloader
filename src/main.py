@@ -3,6 +3,7 @@ import os
 from typing import Optional
 import tkinter as tk
 from tkinter import messagebox
+from datetime import datetime
 
 from settings import Settings
 from modloader import ModLoader
@@ -60,6 +61,23 @@ def play():
         print("Game path is not set. Please set the game path first.")
         return
 
+    # Check for new (unlocked) mods that will be locked after this session
+    current_mod_ids = list(mod_loader.mods.keys())
+    new_mods = [mod_id for mod_id in current_mod_ids if not settings.is_mod_locked(mod_id)]
+    
+    if new_mods:
+        # Warn user about new mods being locked
+        result = messagebox.askyesno(
+            "TS1 ModLoader - New Mods Detected",
+            f"You are about to install {len(new_mods)} new mod(s).\n\n"
+            "Once you start playing, these mods will be locked and cannot be removed "
+            "to prevent save file corruption.\n\n"
+            "Do you want to continue?"
+        )
+        if not result:
+            print("User cancelled mod installation.")
+            return
+
     print("Verifying mod installation..")
     if not mod_loader.validate_installation():
         print("Mod validation failed due to conflicts.")
@@ -68,6 +86,14 @@ def play():
 
     print("Applying mods...")
     mod_loader.install_all()
+
+    # Lock currently installed mods (prevents removal after game start)
+    current_mod_ids = list(mod_loader.mods.keys())
+    settings.lock_mods(current_mod_ids)
+
+    # Update last played timestamp
+    timestamp = datetime.now().strftime("%B %d, %Y at %H:%M")
+    settings.set_last_played(timestamp)
 
     print(f"Launching The Sims 1 from: {game_path}")
     subprocess.Popen([os.path.join(game_path, "Sims.exe")])

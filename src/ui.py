@@ -109,6 +109,34 @@ class UI:
         """Create the Play page"""
         page = tk.Frame(self.content_frame, bg=self.primary_color)
         
+        # Large banner/logo image
+        self.play_banner = self._load_image("banner.png", max_width=500, max_height=250)
+        if self.play_banner:
+            banner_label = tk.Label(
+                page,
+                image=self.play_banner,
+                bg=self.primary_color,
+                bd=0
+            )
+        else:
+            # Placeholder if no image
+            banner_label = tk.Frame(
+                page,
+                bg=self.secondary_color,
+                width=400,
+                height=200
+            )
+            banner_label.pack_propagate(False)
+            tk.Label(
+                banner_label,
+                text="The Sims 1\nModLoader",
+                font=(self.font_family, 24, "bold"),
+                bg=self.secondary_color,
+                fg=self.text_primary_color,
+                justify=tk.CENTER
+            ).place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        banner_label.pack(pady=(40, 20))
+        
         title = tk.Label(
             page,
             text="Play The Sims 1",
@@ -116,7 +144,7 @@ class UI:
             bg=self.primary_color,
             fg=self.text_primary_color
         )
-        title.pack(pady=(50, 30))
+        title.pack(pady=(10, 15))
         
         play_button = tk.Button(
             page,
@@ -132,7 +160,19 @@ class UI:
             cursor="hand2",
             command=self.launch_game
         )
-        play_button.pack(pady=20)
+        play_button.pack(pady=15)
+        
+        # Last played label
+        last_played = self.settings.get_last_played()
+        last_played_text = f"Last played: {last_played}" if last_played else "Not played yet"
+        self.last_played_label = tk.Label(
+            page,
+            text=last_played_text,
+            font=(self.font_family, 10),
+            bg=self.primary_color,
+            fg=self.text_secondary_color
+        )
+        self.last_played_label.pack(pady=(10, 20))
         
         self.pages["Play"] = page
     
@@ -285,22 +325,36 @@ class UI:
         )
         entry_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Delete button (pack first so it doesn't shrink)
-        delete_btn = tk.Button(
-            entry_frame,
-            text="✕",
-            font=(self.font_family, 10, "bold"),
-            bg=self.primary_color,
-            fg="#FF6B6B",
-            activebackground=self.secondary_color,
-            activeforeground="#FF4444",
-            bd=0,
-            width=3,
-            pady=2,
-            cursor="hand2",
-            command=lambda m=mod: self.confirm_delete_mod(m)
-        )
-        delete_btn.pack(side=tk.RIGHT, padx=(5, 0))
+        # Only show delete button if mod is not locked (hasn't been started with yet)
+        is_locked = self.settings.is_mod_locked(mod.id)
+        if not is_locked:
+            # Delete button (pack first so it doesn't shrink)
+            delete_btn = tk.Button(
+                entry_frame,
+                text="✕",
+                font=(self.font_family, 10, "bold"),
+                bg=self.primary_color,
+                fg="#FF6B6B",
+                activebackground=self.secondary_color,
+                activeforeground="#FF4444",
+                bd=0,
+                width=3,
+                pady=2,
+                cursor="hand2",
+                command=lambda m=mod: self.confirm_delete_mod(m)
+            )
+            delete_btn.pack(side=tk.RIGHT, padx=(5, 0))
+        else:
+            # Show lock indicator for mods that have been started with
+            lock_label = tk.Label(
+                entry_frame,
+                text="🔒",
+                font=(self.font_family, 10),
+                bg=self.secondary_color,
+                fg=self.text_secondary_color,
+                width=3
+            )
+            lock_label.pack(side=tk.RIGHT, padx=(5, 0))
         
         # Truncate mod name if too long (max ~60 chars to fit 3/4 width)
         max_chars = 60
@@ -1141,7 +1195,14 @@ class UI:
                 "However, ensure that you backup your game folder before uninstalling mods, as missing objects and skins may cause issues. Including corrupted save files."
             ),
             (
-                "5. Where can I find more mods?",
+                "5. Where are my Save Files stored?",
+                "Save files in the original game are typically stored in the the 'UserData' folder within the game's installation directory.\n\n" \
+                "On The Sims 1 Legacy Collection however, the default path is usually:\n" \
+                r"C:\Users\%USERPROFILE%\Saved Games\Electronic Arts\The Sims 25" + "\n\n" \
+                "This means that if you uninstall the game and wanna start over, don't forget to delete this folder to prevent loading old saves with missing mods."
+            ),
+            (
+                "6. Where can I find more mods?",
                 "There are many modding communities and websites where you can find additional mods for The Sims 1. Here are some of them:\n\n" \
                 "- Mod The Sims (modthesims.info)\n" \
                 "- The Sims Resource (thesimsresource.com)\n" \
@@ -1274,6 +1335,12 @@ class UI:
         """Launch The Sims 1 game"""
         if self.play_callback:
             self.play_callback()
+            # Refresh mod list to show locked status
+            self.refresh_mod_list()
+            # Update last played label
+            last_played = self.settings.get_last_played()
+            if last_played:
+                self.last_played_label.config(text=f"Last played: {last_played}")
         else:
             print("Play callback not set")
     

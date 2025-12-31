@@ -3,6 +3,7 @@ from operator import mod
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from tkinter import messagebox
 from typing import Dict, List, Optional, Tuple
 
 from settings import Settings
@@ -85,6 +86,11 @@ class ModLoader:
         # Validate: No duplicate IDs
         if self.duplicate_ids_found:
             print("[ERROR] Duplicate mod IDs found.")
+            messagebox.showerror(
+                "TS1 ModLoader - Duplicate Mod IDs",
+                "Duplicate mod IDs were found in the manifest.\n"
+                "Please resolve this conflict by removing the duplicate mods."
+            )
             return False
         
         # Validate: No conflicting overrides
@@ -93,6 +99,11 @@ class ModLoader:
             for _, target_rel in mod.override_files:
                 if target_rel in overridden_files:
                     print(f"[ERROR] Conflict detected: {target_rel} is overridden by multiple mods.")
+                    messagebox.showerror(
+                        "TS1 ModLoader - Conflict Detected",
+                        f"The file '{target_rel}' is overridden by multiple mods.\n"
+                        "Please resolve this conflict by removing one of the conflicting mods."
+                    )
                     return False
                 overridden_files.add(target_rel)
         return True
