@@ -115,7 +115,7 @@ class ModLoader:
             dest = downloads_dir / Path(rel_path)
             dest.parent.mkdir(parents=True, exist_ok=True)
             print(f"[CC FILE] copy {src} -> {dest}\n")
-            # shutil.copy2(src, dest)
+            shutil.copy2(src, dest)
 
         # Copy override files to their target locations relative to game root
         for src_rel, dest_rel in mod.override_files:
@@ -123,7 +123,7 @@ class ModLoader:
             dest = self.game_path / dest_rel
             dest.parent.mkdir(parents=True, exist_ok=True)
             print(f"[OVERRIDE FILE] copy {src} -> {dest}\n")
-            # shutil.copy2(src, dest)
+            shutil.copy2(src, dest)
         print("Mod installed:", mod.id, "\n")
 
     # Installs all mods in the manifest

@@ -70,7 +70,7 @@ def play():
     mod_loader.install_all()
 
     print(f"Launching The Sims 1 from: {game_path}")
-    # subprocess.Popen([os.path.join(game_path, "Sims.exe")])
+    subprocess.Popen([os.path.join(game_path, "Sims.exe")])
 
 if __name__ == "__main__":
     main()
