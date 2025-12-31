@@ -1,3 +1,4 @@
+import os
 import tkinter as tk
 from tkinter import ttk
 
@@ -27,6 +28,9 @@ class UI:
         # Slightly wider window to accommodate scrollbar without clipping text
         self.root.geometry("900x600")
         self.root.resizable(False, False)
+
+        # Assets directory for images
+        self.assets_dir = os.path.join(os.path.dirname(__file__), "assets", "images")
         
         # Create main layout
         self.create_sidebar()
@@ -34,6 +38,24 @@ class UI:
         
         # Show initial page
         self.show_page("Play")
+
+    def _load_image(self, filename, max_width, max_height):
+        """Load and downscale an image to fit within max bounds."""
+        path = os.path.join(self.assets_dir, filename)
+        try:
+            img = tk.PhotoImage(file=path)
+        except tk.TclError:
+            return None
+
+        width, height = img.width(), img.height()
+        scale = max(
+            (width + max_width - 1) // max_width,
+            (height + max_height - 1) // max_height,
+            1,
+        )
+        if scale > 1:
+            img = img.subsample(scale)
+        return img
     
     def create_sidebar(self):
         """Create the left sidebar with navigation buttons"""
@@ -272,7 +294,6 @@ class UI:
     def create_about_page(self):
         """Create the About page"""
         page = tk.Frame(self.content_frame, bg=self.primary_color)
-        
         title = tk.Label(
             page,
             text="About TS1 ModLoader",
@@ -282,7 +303,7 @@ class UI:
         )
         title.pack(pady=(30, 20))
         
-        label = tk.Label(
+        info_label = tk.Label(
             page,
             text="The Sims 1 ModLoader\nVersion 1.0",
             font=(self.font_family, 12),
@@ -290,7 +311,62 @@ class UI:
             fg=self.text_secondary_color,
             justify=tk.CENTER
         )
-        label.pack(pady=20)
+        info_label.pack(pady=(0, 15))
+
+        self.creator_image = self._load_image("acanixz.png", max_width=220, max_height=110)
+        if self.creator_image:
+            creator_image_label = tk.Label(
+                page,
+                image=self.creator_image,
+                bg=self.primary_color,
+                bd=0
+            )
+        else:
+            creator_image_label = tk.Label(
+                page,
+                text="Creator Character Image",
+                font=(self.font_family, 11, "bold"),
+                width=26,
+                height=4,
+                bg=self.secondary_color,
+                fg=self.text_secondary_color,
+                relief=tk.GROOVE,
+                bd=2
+            )
+        creator_image_label.pack(pady=(164, 0))
+
+        creator_label = tk.Label(
+            page,
+            text="Created by Acanixz",
+            font=(self.font_family, 12, "bold"),
+            bg=self.primary_color,
+            fg=self.text_primary_color,
+            justify=tk.CENTER
+        )
+        creator_label.pack(pady=(0, 10))
+
+        links_label = tk.Label(
+            page,
+            text="This tool is open-source and available on GitHub.\n" \
+                 "https://github.com/Acanixz/TS1-modloader",
+            font=(self.font_family, 12),
+            bg=self.primary_color,
+            fg=self.text_secondary_color,
+            justify=tk.CENTER
+        )
+        links_label.pack(pady=(0, 15))
+
+        legal_label = tk.Label(
+            page,
+            text="The Sims is a trademark of Electronic Arts Inc. All rights reserved.\n" \
+                 "This tool is not affiliated with or endorsed by Electronic Arts Inc.",
+            font=(self.font_family, 11),
+            bg=self.primary_color,
+            fg=self.text_secondary_color,
+            justify=tk.CENTER,
+            wraplength=520
+        )
+        legal_label.pack(pady=(0, 15))
         
         self.pages["About"] = page
     
