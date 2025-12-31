@@ -1,6 +1,9 @@
 import os
+import sys
 import tkinter as tk
 from tkinter import ttk
+from settings import Settings
+from tkinter import messagebox
 
 # The Sims 1 Color Palettes
 PRIMARY_COLOR = "#395577"  # Background primary
@@ -13,7 +16,9 @@ FONT_FAMILY = "Montserrat"
 FALLBACK_FONT_FAMILY = "Segoe UI"
 
 class UI:
-    def __init__(self):
+    def __init__(self, settings : Settings, play_callback=None):
+        self.settings = settings
+        self.play_callback = play_callback
         self.primary_color = PRIMARY_COLOR
         self.secondary_color = SECONDARY_COLOR
         self.text_primary_color = TEXT_PRIMARY_COLOR
@@ -168,14 +173,51 @@ class UI:
         )
         title.pack(pady=(30, 20))
         
-        label = tk.Label(
+        # Game Path section
+        game_path_label = tk.Label(
             page,
-            text="Settings configuration coming soon...",
-            font=(self.font_family, 12),
+            text="Game Path:",
+            font=(self.font_family, 12, "bold"),
             bg=self.primary_color,
-            fg=self.text_secondary_color
+            fg=self.text_primary_color
         )
-        label.pack(pady=20)
+        game_path_label.pack(pady=(20, 10), padx=20, anchor=tk.W)
+        
+        # Frame for game path display and button
+        path_frame = tk.Frame(page, bg=self.primary_color)
+        path_frame.pack(pady=(0, 20), padx=20, anchor=tk.W, fill=tk.X)
+        
+        # Game path display
+        self.game_path_var = tk.StringVar(value=self.settings.get_game_path() or "No path selected")
+        path_display = tk.Label(
+            path_frame,
+            textvariable=self.game_path_var,
+            font=(self.font_family, 11),
+            bg=self.secondary_color,
+            fg=self.text_secondary_color,
+            padx=15,
+            pady=10,
+            relief=tk.SUNKEN,
+            anchor=tk.W
+        )
+        path_display.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        
+        # Browse button
+        browse_button = tk.Button(
+            page,
+            text="Browse",
+            font=(self.font_family, 11, "bold"),
+            bg=self.secondary_color,
+            fg=self.text_primary_color,
+            activebackground=self.primary_color,
+            activeforeground=self.text_primary_color,
+            bd=0,
+            padx=20,
+            pady=10,
+            cursor="hand2",
+            command=self.select_game_path
+        )
+        browse_button.pack(pady=(0, 20), padx=20, anchor=tk.W)
         
         self.pages["Settings"] = page
     
@@ -389,8 +431,24 @@ class UI:
     
     def launch_game(self):
         """Launch The Sims 1 game"""
-        # Placeholder - implement game launch logic
-        print("Launching The Sims 1...")
+        if self.play_callback:
+            self.play_callback()
+        else:
+            print("Play callback not set")
+    
+    def select_game_path(self):
+        """Open folder dialog to select game path"""
+        if self.settings.select_game_path():
+            path = self.settings.get_game_path()
+            self.game_path_var.set(path or "No path selected")
+            # Create a message box to inform user that the application will be restarted
+            messagebox.showinfo(
+                "TS1 ModLoader - Restart Required",
+                "The application will now restart to apply the new game path."
+            )
+            self.root.destroy()
+            os.execl(sys.executable, sys.executable, *sys.argv)
+
     
     def run(self):
         self.root.mainloop()

@@ -31,15 +31,18 @@ class ModLoader:
             raise FileNotFoundError(f"Game path does not exist: {self.game_path}")
 
         # Load mod manifest
-        self.cache_dir = self.game_path / "mod_cache"
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-
-        self.manifest_path = self.cache_dir / "manifest.json"
-        self.mods: Dict[str, Mod] = {}
         self._load_manifest()
 
     # Loads mod manifest from file
     def _load_manifest(self) -> None:
+        # Starting variables
+        self.cache_dir = self.game_path / "mod_cache"
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+        self.manifest_path = self.cache_dir / "manifest.json"
+        self.duplicate_ids_found = False
+        self.mods: Dict[str, Mod] = {}
+
         # Prepare file if it doesn't exist
         if not self.manifest_path.exists():
             self.manifest_path.write_text(json.dumps({"mods": []}, indent=4))
@@ -75,6 +78,7 @@ class ModLoader:
                 print(f"[WARNING] Duplicate mod ID in manifest: {mod.id}. Overwriting previous entry.")
                 self.duplicate_ids_found = True
             self.mods[mod.id] = mod
+        print(f"Loaded {len(self.mods)} mods from manifest")
 
     # Validates the mod installation for conflicts
     def validate_installation(self) -> bool:

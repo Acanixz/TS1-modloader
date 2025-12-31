@@ -28,7 +28,7 @@ def display_boot_message():
 
 def main():
     # Initialize UI
-    ui = UI()
+    ui = UI(settings, play_callback=play)
     ui.run()
 
 # Initialize submodules
@@ -52,7 +52,6 @@ if not settings.get_game_path():
 
  # Initialize ModLoader
 mod_loader = ModLoader(settings)
-print(f"Loaded {len(mod_loader.mods)} mods from manifest")
 
 # Initializes The Sims 1 in the selected game path
 def play():
