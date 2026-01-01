@@ -1,5 +1,6 @@
 import subprocess
 import os
+import sys
 from typing import Optional
 import tkinter as tk
 from tkinter import messagebox
@@ -33,7 +34,9 @@ def main():
     ui.run()
 
 # Initialize submodules
+os.chdir(os.getcwd())  # Ensure working directory is the script's directory
 settings = Settings()
+
 # Edge case: First boot without a configured game path
 if not settings.get_game_path():
     # Show message and prompt for game folder
@@ -49,9 +52,8 @@ if not settings.get_game_path():
             "The application will now exit."
         )
         print("No folder selected. Exiting.")
-        exit(0)
+        sys.exit(0)
 
- # Initialize ModLoader
 mod_loader = ModLoader(settings)
 
 # Initializes The Sims 1 in the selected game path

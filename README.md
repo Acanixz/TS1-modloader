@@ -40,6 +40,22 @@ The Sims 1 Modloader is a simple GUI application for managing The Sims 1 Custom 
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## License
+### Repository installation (Prerequisites)
 
+- [Python 3.14](https://www.python.org/downloads/release/python-3140/)
+- [Visual Studio Code](https://code.visualstudio.com/download)
+- [Python VSCode Extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
+
+### Repository installation
+1. Open the repository folder in VS Code
+2. Press CTRL + Shift + P and Search for ``Python: Create Environment``
+3. Select a ``.venv`` environment and then check ``requirements.txt``
+4. Wait for the installation to complete
+
+Once python is installed, you'll be able to compile the code through this command:
+```
+pyinstaller --onefile --name TS1-Modloader --icon=src/assets/images/icon.ico --add-data "src/assets;assets" src/main.pyw
+```
+
+## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
