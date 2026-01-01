@@ -35,6 +35,17 @@ class UI:
         self.root.geometry("900x600")
         self.root.resizable(False, False)
 
+        # Set window icon (try .ico first for Windows, then .png)
+        ico_path = os.path.join(os.path.dirname(__file__), "assets", "images", "icon.ico")
+        png_path = os.path.join(os.path.dirname(__file__), "assets", "images", "icon.png")
+        
+        if os.path.exists(ico_path):
+            self.root.iconbitmap(ico_path)
+        elif os.path.exists(png_path):
+            icon = tk.PhotoImage(file=png_path)
+            self.root.iconphoto(True, icon)
+            self._icon = icon  # Keep reference to prevent garbage collection
+
         # Assets directory for images
         self.assets_dir = os.path.join(os.path.dirname(__file__), "assets", "images")
         
@@ -1238,6 +1249,7 @@ class UI:
     def create_about_page(self):
         """Create the About page"""
         page = tk.Frame(self.content_frame, bg=self.primary_color)
+        
         title = tk.Label(
             page,
             text="About TS1 ModLoader",
@@ -1246,6 +1258,17 @@ class UI:
             fg=self.text_primary_color
         )
         title.pack(pady=(30, 20))
+        
+        # Program logo
+        self.about_logo = self._load_image("icon.png", max_width=150, max_height=150)
+        if self.about_logo:
+            logo_label = tk.Label(
+                page,
+                image=self.about_logo,
+                bg=self.primary_color,
+                bd=0
+            )
+            logo_label.pack(pady=(0, 15))
         
         info_label = tk.Label(
             page,
@@ -1277,7 +1300,7 @@ class UI:
                 relief=tk.GROOVE,
                 bd=2
             )
-        creator_image_label.pack(pady=(164, 0))
+        creator_image_label.pack(pady=(20, 0))
 
         creator_label = tk.Label(
             page,
