@@ -1,6 +1,6 @@
 # TS1-modloader
 
-![TS1-modloader Logo](src/assets/images/icon.png)
+![TS1-modloader Image](src/assets/images/github_header.png)
 
 The Sims 1 Modloader is a simple GUI application for managing The Sims 1 Custom Content.
 
