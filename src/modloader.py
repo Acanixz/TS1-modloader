@@ -43,14 +43,18 @@ class ModLoader:
         self.manifest_path = self.cache_dir / "manifest.json"
         self.duplicate_ids_found = False
         self.mods: Dict[str, Mod] = {}
+        self.locked_mods: List[str] = []  # Mods that have been started with and cannot be removed
 
         # Prepare file if it doesn't exist
         if not self.manifest_path.exists():
-            self.manifest_path.write_text(json.dumps({"mods": []}, indent=4))
+            self.manifest_path.write_text(json.dumps({"mods": [], "locked_mods": []}, indent=4))
             return
 
         with self.manifest_path.open("r", encoding="utf-8") as f:
             data = json.load(f)
+
+        # Load locked mods from manifest
+        self.locked_mods = data.get("locked_mods", [])
 
         # Parse mods from manifest
         self.duplicate_ids_found = False
@@ -229,6 +233,25 @@ class ModLoader:
             mods_data.append(mod_entry)
 
         with self.manifest_path.open("w", encoding="utf-8") as f:
-            json.dump({"mods": mods_data}, f, indent=2)
+            json.dump({"mods": mods_data, "locked_mods": self.locked_mods}, f, indent=2)
 
+    # Lock mods that the game has started with (prevents removal)
+    def lock_mods(self, mod_ids: List[str]) -> None:
+        for mod_id in mod_ids:
+            if mod_id not in self.locked_mods:
+                self.locked_mods.append(mod_id)
+        self._save_manifest()
 
+    # Check if a mod is locked
+    def is_mod_locked(self, mod_id: str) -> bool:
+        return mod_id in self.locked_mods
+
+    # Get list of locked mods
+    def get_locked_mods(self) -> List[str]:
+        return self.locked_mods.copy()
+
+    # Unlock a specific mod (for conflict resolution)
+    def unlock_mod(self, mod_id: str) -> None:
+        if mod_id in self.locked_mods:
+            self.locked_mods.remove(mod_id)
+            self._save_manifest()

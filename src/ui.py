@@ -337,7 +337,7 @@ class UI:
         entry_frame.pack(fill=tk.BOTH, expand=True)
         
         # Only show delete button if mod is not locked (hasn't been started with yet)
-        is_locked = self.settings.is_mod_locked(mod.id)
+        is_locked = self.modloader.is_mod_locked(mod.id) if self.modloader else False
         if not is_locked:
             # Delete button (pack first so it doesn't shrink)
             delete_btn = tk.Button(

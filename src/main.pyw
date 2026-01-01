@@ -16,15 +16,16 @@ def display_boot_message():
     messagebox.showinfo(
         "TS1 ModLoader - Welcome",
         "Welcome to TS1 ModLoader!\n\nThis tool helps you manage mod files for The Sims 1.\n" \
-        "Preventing file conflicts and making mod management easier for newcomers.\n\n" \
-        "NOTE: This ModLoader is intended for new installations of The Sims 1. " \
-        "If you have existing mods, please backup your game folder before proceeding."
+        "Preventing file conflicts and making mod management easier for new players.\n\n" \
+        "NOTE: This ModLoader is intended for ONLY new installations of The Sims 1. " \
+        "If you have existing mods, do not continue this installation."
     )
 
     messagebox.showinfo(
         "TS1 ModLoader - Setup Required",
-        "Please select your The Sims 1 installation folder to continue.\n\n" \
-        "You can change this later in the settings."
+        "Please select your The Sims 1 installation folder to continue.\n" \
+        "You can change this later in the settings.\n\n" \
+        "Tip: Copy the path to Sims.exe in your clipboard before pressing OK."
     )
     root.destroy()
 
@@ -65,7 +66,7 @@ def play():
 
     # Check for new (unlocked) mods that will be locked after this session
     current_mod_ids = list(mod_loader.mods.keys())
-    new_mods = [mod_id for mod_id in current_mod_ids if not settings.is_mod_locked(mod_id)]
+    new_mods = [mod_id for mod_id in current_mod_ids if not mod_loader.is_mod_locked(mod_id)]
     
     if new_mods:
         # Warn user about new mods being locked
@@ -91,7 +92,7 @@ def play():
 
     # Lock currently installed mods (prevents removal after game start)
     current_mod_ids = list(mod_loader.mods.keys())
-    settings.lock_mods(current_mod_ids)
+    mod_loader.lock_mods(current_mod_ids)
 
     # Update last played timestamp
     timestamp = datetime.now().strftime("%B %d, %Y at %H:%M")
