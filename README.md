@@ -13,7 +13,7 @@ The Sims 1 Modloader is a simple GUI application for managing The Sims 1 Custom 
 
 ## Installation
 
-1. Download the latest release from the [Releases](https://github.com/Herick/TS1-modloader/releases) page
+1. Download the latest release from the [Releases](https://github.com/Acanixz/TS1-modloader/releases) page
 2. Extract the archive to your preferred location
 3. Run `TS1-modloader.exe`
 
