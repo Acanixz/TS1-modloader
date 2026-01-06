@@ -99,7 +99,9 @@ def play():
     settings.set_last_played(timestamp)
 
     print(f"Launching The Sims 1 from: {game_path}")
-    subprocess.Popen([os.path.join(game_path, "Sims.exe")])
+    # Launch the game with the game directory as the working directory
+    # This is necessary for The Sims 1 to find its data files
+    subprocess.Popen([os.path.join(game_path, "Sims.exe")], cwd=game_path)
 
 if __name__ == "__main__":
     main()
