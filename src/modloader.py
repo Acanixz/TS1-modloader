@@ -1,12 +1,42 @@
 import json
 from operator import mod
+import os
 import shutil
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 from tkinter import messagebox
 from typing import Dict, List, Optional, Tuple
 
 from settings import Settings
+
+
+# Helper function to remove read-only attribute from files
+def remove_readonly(path: Path) -> None:
+    """
+    Remove read-only attribute from a file or directory.
+    Works on both Windows and Linux.
+    """
+    try:
+        if path.exists():
+            # Make the file/directory writable
+            os.chmod(path, stat.S_IWRITE | stat.S_IREAD | stat.S_IEXEC)
+    except Exception as e:
+        print(f"[WARNING] Could not remove read-only attribute from {path}: {e}")
+
+
+# Error handler for shutil.rmtree to handle read-only files
+def handle_remove_readonly(func, path, exc_info):
+    """
+    Error handler for shutil.rmtree that removes read-only attributes.
+    If a file can't be deleted due to permissions, make it writable and retry.
+    """
+    path_obj = Path(path)
+    remove_readonly(path_obj)
+    try:
+        func(path)
+    except Exception as e:
+        print(f"[ERROR] Failed to delete {path} even after removing read-only: {e}")
 
 # Data class representing a mod
 @dataclass
@@ -137,6 +167,9 @@ class ModLoader:
             src = self.cache_dir / rel_path
             dest = downloads_dir / Path(rel_path)
             dest.parent.mkdir(parents=True, exist_ok=True)
+            # Remove read-only attribute if destination exists
+            if dest.exists():
+                remove_readonly(dest)
             print(f"[CC FILE] copy {src} -> {dest}\n")
             shutil.copy2(src, dest)
 
@@ -145,6 +178,9 @@ class ModLoader:
             src = self.cache_dir / src_rel
             dest = self.game_path / dest_rel
             dest.parent.mkdir(parents=True, exist_ok=True)
+            # Remove read-only attribute if destination exists
+            if dest.exists():
+                remove_readonly(dest)
             print(f"[OVERRIDE FILE] copy {src} -> {dest}\n")
             shutil.copy2(src, dest)
         print("Mod installed:", mod.id, "\n")
@@ -177,6 +213,9 @@ class ModLoader:
         for src_path, filename in download_files:
             dest = mod_cache_dir / filename
             dest.parent.mkdir(parents=True, exist_ok=True)
+            # Remove read-only attribute if destination exists
+            if dest.exists():
+                remove_readonly(dest)
             shutil.copy2(src_path, dest)
             # Store relative path from cache_dir: {mod_id}/{filename}
             download_rel_paths.append(f"{mod_id}/{filename}")
@@ -186,6 +225,9 @@ class ModLoader:
         for src_path, filename, target_rel in override_files:
             dest = mod_cache_dir / filename
             dest.parent.mkdir(parents=True, exist_ok=True)
+            # Remove read-only attribute if destination exists
+            if dest.exists():
+                remove_readonly(dest)
             shutil.copy2(src_path, dest)
             # Store relative path from cache_dir and target
             source_rel = f"{mod_id}/{filename}"
@@ -214,7 +256,8 @@ class ModLoader:
         # Remove mod directory from cache
         mod_cache_dir = self.cache_dir / mod_id
         if mod_cache_dir.exists():
-            shutil.rmtree(mod_cache_dir)
+            # Use error handler to deal with read-only files
+            shutil.rmtree(mod_cache_dir, onerror=handle_remove_readonly)
 
         # Remove from mods dict
         del self.mods[mod_id]
