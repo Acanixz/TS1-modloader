@@ -1,7 +1,6 @@
 import os
 import sys
 import tkinter as tk
-from tkinter import ttk
 from tkinter import filedialog, messagebox
 from settings import Settings
 
@@ -640,8 +639,8 @@ class UI:
         """Show confirmation dialog before deleting a mod"""
         result = messagebox.askyesno(
             "Delete Mod",
-            f"Are you sure you want to delete '{mod.name}'?\n\n" \
-            "This will remove the mod from the manifest and delete its cached files.\n\n" \
+            f"Are you sure you want to delete '{mod.name}'?\n \n" \
+            "This will remove the mod from the manifest and delete its cached files.\n \n" \
             "Note: This action does not delete any files from the game folder, so this is only effective " \
             "if the game has not been launched with the mod installed yet.",
             parent=self.root
@@ -1135,6 +1134,73 @@ class UI:
         )
         browse_button.pack(pady=(0, 20), padx=20, anchor=tk.W)
         
+        # Installation Type section
+        install_type_label = tk.Label(
+            page,
+            text="Installation Type:",
+            font=(self.font_family, 12, "bold"),
+            bg=self.primary_color,
+            fg=self.text_primary_color
+        )
+        install_type_label.pack(pady=(20, 10), padx=20, anchor=tk.W)
+        
+        # Frame for installation type display and button
+        type_frame = tk.Frame(page, bg=self.primary_color)
+        type_frame.pack(pady=(0, 20), padx=20, anchor=tk.W, fill=tk.X)
+        
+        # Installation type display with mapping for user-friendly names
+        install_type = self.settings.get_installation_type()
+        type_display_text = {
+            "steam": "Steam (Linux/macOS)",
+            "native": "Native (Windows)",
+            "wine": "Wine/Disk Installation (Linux)",
+            None: "Not detected"
+        }.get(install_type, install_type or "Unknown")
+        
+        self.install_type_var = tk.StringVar(value=type_display_text)
+        type_display = tk.Label(
+            type_frame,
+            textvariable=self.install_type_var,
+            font=(self.font_family, 11),
+            bg=self.secondary_color,
+            fg=self.text_secondary_color,
+            padx=15,
+            pady=10,
+            relief=tk.SUNKEN,
+            anchor=tk.W
+        )
+        type_display.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        
+        # Change installation type button
+        change_type_button = tk.Button(
+            page,
+            text="Change Installation Type",
+            font=(self.font_family, 11, "bold"),
+            bg=self.secondary_color,
+            fg=self.text_primary_color,
+            activebackground=self.primary_color,
+            activeforeground=self.text_primary_color,
+            bd=0,
+            padx=20,
+            pady=10,
+            cursor="hand2",
+            command=self.change_installation_type
+        )
+        change_type_button.pack(pady=(0, 20), padx=20, anchor=tk.W)
+        
+        # Info text about installation types
+        info_text = tk.Label(
+            page,
+            text="• Steam: For Steam installations on Linux/macOS\n"
+                 "• Native: For Windows installations (both Steam and non-Steam)\n"
+                 "• Wine: For non-Steam Linux installations (requires Wine)",
+            font=(self.font_family, 9),
+            bg=self.primary_color,
+            fg=self.text_secondary_color,
+            justify=tk.LEFT
+        )
+        info_text.pack(pady=(0, 20), padx=40, anchor=tk.W)
+        
         self.pages["Settings"] = page
     
     def create_faq_page(self):
@@ -1382,6 +1448,17 @@ class UI:
         if self.settings.select_game_path():
             path = self.settings.get_game_path()
             self.game_path_var.set(path or "No path selected")
+            
+            # Update installation type display
+            install_type = self.settings.get_installation_type()
+            type_display_text = {
+                "steam": "Steam (Linux/macOS)",
+                "native": "Native (Windows)",
+                "wine": "Wine/Disk Installation (Linux)",
+                None: "Not detected"
+            }.get(install_type, install_type or "Unknown")
+            self.install_type_var.set(type_display_text)
+            
             # Create a message box to inform user that the application will be restarted
             messagebox.showinfo(
                 "TS1 ModLoader - Restart Required",
@@ -1389,6 +1466,154 @@ class UI:
             )
             self.root.destroy()
             os.execl(sys.executable, sys.executable, *sys.argv)
+    
+    def change_installation_type(self):
+        """Open dialog to change installation type"""
+        # Create popup window
+        popup = tk.Toplevel(self.root)
+        popup.title("Change Installation Type")
+        popup.configure(bg=self.primary_color)
+        popup.geometry("500x500")
+        popup.resizable(False, False)
+        popup.transient(self.root)
+        popup.grab_set()
+        
+        # Center the popup
+        popup.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (500 // 2)
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (380 // 2)
+        popup.geometry(f"+{x}+{y}")
+        
+        # Title
+        tk.Label(
+            popup,
+            text="Select Installation Type",
+            font=(self.font_family, 16, "bold"),
+            bg=self.primary_color,
+            fg=self.text_primary_color
+        ).pack(pady=(20, 10))
+        
+        # Instructions
+        tk.Label(
+            popup,
+            text="Choose how The Sims 1 should be launched:",
+            font=(self.font_family, 11),
+            bg=self.primary_color,
+            fg=self.text_secondary_color
+        ).pack(pady=(0, 20))
+        
+        # Radio button selection container
+        radio_container = tk.Frame(popup, bg=self.secondary_color, relief=tk.SUNKEN, bd=2)
+        radio_container.pack(pady=(0, 15), padx=40, fill=tk.X)
+        
+        selected_type = tk.StringVar(value=self.settings.get_installation_type() or "steam")
+        
+        options = [
+            ("steam", "Steam (Linux/macOS)", "Launch via Steam protocol"),
+            ("native", "Native (Windows)", "Direct .exe execution"),
+            ("wine", "Wine/Disk (Linux)", "Launch via Wine")
+        ]
+        
+        for i, (value, label, desc) in enumerate(options):
+            # Add separator between options
+            if i > 0:
+                tk.Frame(radio_container, bg=self.primary_color, height=1).pack(fill=tk.X, padx=10, pady=5)
+            
+            frame = tk.Frame(radio_container, bg=self.secondary_color)
+            frame.pack(pady=8, padx=15, anchor=tk.W, fill=tk.X)
+            
+            rb = tk.Radiobutton(
+                frame,
+                text=label,
+                variable=selected_type,
+                value=value,
+                font=(self.font_family, 11, "bold"),
+                bg=self.secondary_color,
+                fg=self.text_primary_color,
+                selectcolor=self.primary_color,
+                activebackground=self.secondary_color,
+                activeforeground=self.text_primary_color,
+                cursor="hand2",
+                indicatoron=1
+            )
+            rb.pack(anchor=tk.W)
+            
+            tk.Label(
+                frame,
+                text=desc,
+                font=(self.font_family, 9),
+                bg=self.secondary_color,
+                fg=self.text_secondary_color
+            ).pack(anchor=tk.W, padx=(25, 0))
+        
+        # Info label
+        tk.Label(
+            popup,
+            text="Click 'Apply Changes' to save your selection",
+            font=(self.font_family, 9, "italic"),
+            bg=self.primary_color,
+            fg=self.text_secondary_color
+        ).pack(pady=(5, 15))
+        
+        # Buttons frame at the bottom
+        button_frame = tk.Frame(popup, bg=self.primary_color)
+        button_frame.pack(side=tk.BOTTOM, pady=20)
+        
+        def cancel():
+            popup.destroy()
+        
+        def confirm():
+            new_type = selected_type.get()
+            self.settings.set_installation_type(new_type)
+            
+            # Update display
+            type_display_text = {
+                "steam": "Steam (Linux/macOS)",
+                "native": "Native (Windows)",
+                "wine": "Wine/Disk Installation (Linux)",
+            }.get(new_type, new_type)
+            self.install_type_var.set(type_display_text)
+            
+            messagebox.showinfo(
+                "Installation Type Updated",
+                f"Installation type changed to: {type_display_text}",
+                parent=popup
+            )
+            popup.destroy()
+        
+        # Cancel button with distinct styling
+        tk.Button(
+            button_frame,
+            text="Cancel",
+            font=(self.font_family, 11, "bold"),
+            bg=self.secondary_color,
+            fg=self.text_secondary_color,
+            activebackground=self.primary_color,
+            activeforeground=self.text_secondary_color,
+            relief=tk.RAISED,
+            bd=2,
+            padx=30,
+            pady=10,
+            cursor="hand2",
+            command=cancel
+        ).pack(side=tk.LEFT, padx=(0, 15))
+        
+        # Apply button with highlight styling
+        tk.Button(
+            button_frame,
+            text="Apply Changes",
+            font=(self.font_family, 11, "bold"),
+            bg=self.text_primary_color,
+            fg=self.secondary_color,
+            activebackground=self.text_primary_color,
+            activeforeground=self.primary_color,
+            relief=tk.RAISED,
+            bd=2,
+            padx=30,
+            pady=10,
+            cursor="hand2",
+            command=confirm
+        ).pack(side=tk.LEFT)
 
     
     def run(self):
