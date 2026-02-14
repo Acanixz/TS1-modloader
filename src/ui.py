@@ -16,8 +16,8 @@ FALLBACK_FONT_FAMILY = "Segoe UI"
 
 # Supported file types
 SUPPORTED_FILE_TYPES = [
-    ("IFF, FAR, BMP, CMX and SKN Files", 
-     "*.iff *.far *.bmp *.cmx *.skn"),
+    ("Common TS1 Mod Files", 
+     "*.iff *.far *.bmp *.cmx *.cfp *.skn"),
     ("All Files", "*.*")
 ]
 
