@@ -1473,7 +1473,7 @@ class UI:
         popup = tk.Toplevel(self.root)
         popup.title("Change Installation Type")
         popup.configure(bg=self.primary_color)
-        popup.geometry("500x450")
+        popup.geometry("500x500")
         popup.resizable(False, False)
         popup.transient(self.root)
         popup.grab_set()
