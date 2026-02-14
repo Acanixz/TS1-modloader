@@ -30,6 +30,14 @@ class ModLoader:
         self.game_path = Path(game_path_str)
         if not self.game_path.exists():
             raise FileNotFoundError(f"Game path does not exist: {self.game_path}")
+        
+        # Validate that Sims.exe exists
+        sims_exe = self.game_path / "Sims.exe"
+        if not sims_exe.exists():
+            raise FileNotFoundError(
+                f"Sims.exe not found in game path: {self.game_path}\\n\\n"
+                "Please ensure you selected the correct installation folder."
+            )
 
         # Load mod manifest
         self._load_manifest()
