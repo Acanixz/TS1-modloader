@@ -1,5 +1,6 @@
 import os
 import sys
+import subprocess
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from settings import Settings
@@ -1117,10 +1118,14 @@ class UI:
         )
         path_display.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
         
+        # Button frame for Browse and Open Folder buttons
+        button_frame = tk.Frame(page, bg=self.primary_color)
+        button_frame.pack(pady=(0, 20), padx=20, anchor=tk.W)
+        
         # Browse button
         browse_button = tk.Button(
-            page,
-            text="Browse",
+            button_frame,
+            text="Change Path",
             font=(self.font_family, 11, "bold"),
             bg=self.secondary_color,
             fg=self.text_primary_color,
@@ -1132,7 +1137,24 @@ class UI:
             cursor="hand2",
             command=self.select_game_path
         )
-        browse_button.pack(pady=(0, 20), padx=20, anchor=tk.W)
+        browse_button.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Open Folder button
+        open_folder_button = tk.Button(
+            button_frame,
+            text="Open Folder",
+            font=(self.font_family, 11, "bold"),
+            bg=self.secondary_color,
+            fg=self.text_primary_color,
+            activebackground=self.primary_color,
+            activeforeground=self.text_primary_color,
+            bd=0,
+            padx=20,
+            pady=10,
+            cursor="hand2",
+            command=self.open_game_folder
+        )
+        open_folder_button.pack(side=tk.LEFT)
         
         # Installation Type section
         install_type_label = tk.Label(
@@ -1466,6 +1488,43 @@ class UI:
             )
             self.root.destroy()
             os.execl(sys.executable, sys.executable, *sys.argv)
+    
+    def open_game_folder(self):
+        """Open the game installation folder in the system file explorer"""
+        game_path = self.settings.get_game_path()
+        
+        if not game_path:
+            messagebox.showwarning(
+                "No Path Selected",
+                "Please select a game path first.",
+                parent=self.root
+            )
+            return
+        
+        if not os.path.exists(game_path):
+            messagebox.showerror(
+                "Path Not Found",
+                f"The game path does not exist:\n{game_path}",
+                parent=self.root
+            )
+            return
+        
+        try:
+            if sys.platform == "win32":
+                # Windows
+                os.startfile(game_path)
+            elif sys.platform == "darwin":
+                # macOS
+                subprocess.run(["open", game_path])
+            else:
+                # Linux and other Unix-like systems
+                subprocess.run(["xdg-open", game_path])
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Failed to open folder:\n{str(e)}",
+                parent=self.root
+            )
     
     def change_installation_type(self):
         """Open dialog to change installation type"""
