@@ -712,27 +712,8 @@ class UI:
         canvas.bind_all("<MouseWheel>", on_mousewheel)
         
         # --- Form Fields ---
-        
-        # Mod ID
-        tk.Label(
-            content_frame,
-            text="Mod ID: *",
-            font=(self.font_family, 11, "bold"),
-            bg=self.primary_color,
-            fg=self.text_primary_color
-        ).pack(anchor=tk.W, pady=(10, 5))
-        
-        mod_id_entry = tk.Entry(
-            content_frame,
-            font=(self.font_family, 10),
-            bg=self.secondary_color,
-            fg=self.text_secondary_color,
-            insertbackground=self.text_secondary_color,
-            relief=tk.FLAT,
-            width=50
-        )
-        mod_id_entry.pack(anchor=tk.W, ipady=5, pady=(0, 10))
-        
+        mod_id_entry = tk.Entry(content_frame)  # Placeholder for mod ID (auto-generated)
+
         # Mod Name
         tk.Label(
             content_frame,
@@ -753,6 +734,25 @@ class UI:
         )
         mod_name_entry.pack(anchor=tk.W, ipady=5, pady=(0, 10))
         
+        # Set mod_id_entry based on the mod name (no spaces, lowercase, unique)
+        def generate_mod_id(name):
+            # Remove non-alphanumeric characters and convert to lowercase
+            mod_id = ''.join(c.lower() for c in name if c.isalnum())
+            # Ensure it's not empty
+            if not mod_id:
+                mod_id = "default_mod"
+            return mod_id
+
+        def update_mod_id(*args):
+            name = mod_name_entry.get()
+            if name:
+                mod_id = generate_mod_id(name)
+                mod_id_entry.delete(0, tk.END)
+                mod_id_entry.insert(0, mod_id)
+
+        # Bind the update function to the name entry's change event
+        mod_name_entry.bind("<KeyRelease>", update_mod_id)
+
         # Description
         tk.Label(
             content_frame,
