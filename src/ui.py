@@ -15,6 +15,13 @@ TEXT_SECONDARY_COLOR = "#FFFFFF"  # Text secondary
 FONT_FAMILY = "Montserrat"
 FALLBACK_FONT_FAMILY = "Segoe UI"
 
+# Supported file types
+SUPPORTED_FILE_TYPES = [
+    ("IFF, FAR, BMP, CMX and SKN Files", 
+     "*.iff *.far *.bmp *.cmx *.skn"),
+    ("All Files", "*.*")
+]
+
 class UI:
     def __init__(self, settings : Settings, play_callback=None, modloader=None):
         self.settings = settings
@@ -35,16 +42,19 @@ class UI:
         self.root.geometry("900x600")
         self.root.resizable(False, False)
 
-        # Set window icon (try .ico first for Windows, then .png)
-        ico_path = os.path.join(os.path.dirname(__file__), "assets", "images", "icon.ico")
-        png_path = os.path.join(os.path.dirname(__file__), "assets", "images", "icon.png")
-        
-        if os.path.exists(ico_path):
-            self.root.iconbitmap(ico_path)
-        elif os.path.exists(png_path):
-            icon = tk.PhotoImage(file=png_path)
-            self.root.iconphoto(True, icon)
-            self._icon = icon  # Keep reference to prevent garbage collection
+        # Set window icon (platform-aware)
+        if sys.platform == "win32":
+            # Windows: use .ico file
+            ico_path = os.path.join(os.path.dirname(__file__), "assets", "images", "icon.ico")
+            if os.path.exists(ico_path):
+                self.root.iconbitmap(ico_path)
+        else:
+            # Linux/macOS: use .png file with iconphoto
+            png_path = os.path.join(os.path.dirname(__file__), "assets", "images", "icon.png")
+            if os.path.exists(png_path):
+                icon = tk.PhotoImage(file=png_path)
+                self.root.iconphoto(True, icon)
+                self._icon = icon  # Keep reference to prevent garbage collection
 
         # Assets directory for images
         self.assets_dir = os.path.join(os.path.dirname(__file__), "assets", "images")
@@ -802,7 +812,7 @@ class UI:
         def add_download_files():
             files = filedialog.askopenfilenames(
                 title="Select Download Files",
-                filetypes=[("IFF Files", "*.iff"), ("All Files", "*.*")]
+                filetypes=SUPPORTED_FILE_TYPES
             )
             for f in files:
                 filename = os.path.basename(f)
@@ -885,7 +895,7 @@ class UI:
             # First select the source file
             src_file = filedialog.askopenfilename(
                 title="Select Override Source File",
-                filetypes=[("IFF Files", "*.iff"), ("All Files", "*.*")]
+                filetypes=SUPPORTED_FILE_TYPES
             )
             if not src_file:
                 return
