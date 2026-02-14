@@ -1282,7 +1282,7 @@ class UI:
         
         info_label = tk.Label(
             page,
-            text="The Sims 1 ModLoader\nVersion 1.0.1",
+            text="The Sims 1 ModLoader\nVersion 1.0.2",
             font=(self.font_family, 12),
             bg=self.primary_color,
             fg=self.text_secondary_color,
